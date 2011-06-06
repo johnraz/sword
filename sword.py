@@ -33,6 +33,8 @@ config = ConfigParser.ConfigParser()
 config.read('config.ini')
 current_env = config.get('general', 'env')
 def init_site(args):
+   if not os.path.isfile('default.vhost'):
+      raise Exception('default.vhost file required and not found.')
    #Define initial vars 
    wwwdir = config.get('apache', 'wwwdir')
    for site in args.sites:
@@ -85,7 +87,10 @@ def init_site(args):
       tar = tarfile.open("tmp.tar.gz", "r:gz")
       tar.extractall()
       os.remove("tmp.tar.gz")
-      shutil.rmtree("wordpress/wp-content/")
+
+      #Check if the svn repo contained wp-content folder or not.
+      if os.path.isdir('wp-content'):
+         shutil.rmtree("wordpress/wp-content/")
       #TODO make this work ? shutil.move("wordpress/*",".")
       os.system("mv wordpress/* .")
       shutil.rmtree("wordpress")
@@ -119,6 +124,7 @@ def init_database(args):
             print "Database %s already exists" % db_name
             continue
          else:
+            #TODO use the correct domain localhost is not always the right value
             create_user_query = "CREATE USER '%s'@'localhost' IDENTIFIED BY '%s'; CREATE DATABASE %s; GRANT ALL ON *.* TO '%s'@'localhost';" % (db_user, db_password, db_name, db_user)
             cmd="mysql -u %s -p%s -h %s --silent -N -e \"%s\"" % (mysql_user, mysql_password, mysql_host, create_user_query)
             if os.system(cmd) != 0:
