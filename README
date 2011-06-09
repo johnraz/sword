@@ -1,0 +1,10 @@
+Sword
+=====
+
+This script has been created to avoid repition of manual task regarding wordpress site administration.
+
+Wordpress's network feature is not always suitable for everyone. This is my case.
+
+The script is still in a early stage. Actually it has only been tested on ubuntu.
+
+The roadmap for now is to add features and then generalize the code so it can be used in other environnement.
