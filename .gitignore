@@ -1,1 +1,3 @@
-config.ini
+default.vhost
+config*.ini
+*.swp
