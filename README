@@ -1,7 +1,8 @@
 Sword
 =====
+Make sure to read and fill the config-sample.ini file and duplicate as config.ini.
 
-This script has been created to avoid repetition of manual task regarding wordpress site administration.
+This script has been created to automate tasks regarding wordpress site administration.
 
 Wordpress's network feature is not always suitable for everyone. This is my case.
 
