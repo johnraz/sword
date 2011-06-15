@@ -22,7 +22,7 @@
 # Required application: svn client, mysql client, 
 
 
-import argparse, ConfigParser, json, os, pdb, urllib, tarfile, shutil,pwd, getpass,subprocess,MySQLdb,datetime, random, string, glob
+import argparse, ConfigParser, json, os, pdb, urllib, tarfile, shutil,pwd, getpass,subprocess,MySQLdb,datetime, random, string, glob, sys
 
 #Init Configuration
 config = ConfigParser.ConfigParser()
@@ -37,8 +37,13 @@ def get_database_list(mysql_host, mysql_user, mysql_password):
       database_list.append(database.strip())
    return database_list
 
+def check_root():
+   if not os.geteuid()==0:
+      sys.exit("\nYou need to be root to run this command.\n")
+
 #Main Functions
 def init_site(args):
+   check_root()
    if not os.path.isfile('default.vhost'):
       raise Exception('default.vhost file required and not found.')
    #Define initial vars 
@@ -219,6 +224,7 @@ def synch_upload_datas(args):
    print "synch_upload_datas command occurs here"
 
 def update_site(args):
+   check_root()
    wwwdir = config.get('apache', 'wwwdir')
    for site in args.sites:
       site = 'site_'+site
