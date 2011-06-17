@@ -164,8 +164,8 @@ def backup_database(args):
          site_section = 'site_'+site
          db_name = config.get(site_section,'db_name')
          sitedomain = config.get(site_section,mysql_env+'_domain_name')
-         filestamp = datetime.datetime.now().strftime("%Y%m%d%H%M")
-         filename = backupdir+os.sep+db_name+"-"+filestamp+".sql"
+         filestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+         filename = backupdir+os.sep+db_name+"-"+args.source_server+"-"+filestamp+".sql"
          if db_name in database_list:
             result = os.system("mysqldump -u %s -p%s -h %s -e --opt -c %s | sed -e 's/'%s'/'domain_to_replace'/g' |gzip -c > %s.gz" % (mysql_user, mysql_password, mysql_host, db_name, sitedomain, filename))
 #TODO add an option to automatically put the db under svn - commit and stuff.
