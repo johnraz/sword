@@ -184,7 +184,7 @@ def restore_database(args):
    backupdir = os.path.expanduser(config.get('general','backupdir'))
    db_name = config.get(site_section, 'db_name')
    backup_list = glob.glob(backupdir+os.sep+db_name+'*.sql.gz'.replace('//','/'))
-
+   backup_list.sort()
    mysql_section = 'mysql_'+args.destination_server
    mysql_user = config.get(mysql_section,'user')
    mysql_password = config.get(mysql_section,'password') 
