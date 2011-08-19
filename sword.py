@@ -89,19 +89,15 @@ def init_site(args):
       os.system(sed_expression)
       
       sed_expression = "sed -i -e 's#'{sitedir}'#'%s'#' %s" % (sitedir, available_site_file)
-      import pdb;pdb.set_trace()
       os.system(sed_expression)
       
       sed_expression = "sed -i -e 's#'{admin_email}'#'%s'#' %s" % (admin_email, available_site_file)
-      import pdb;pdb.set_trace()
       os.system(sed_expression)
       
       sed_expression = "sed -i -e 's#'{apache_user}'#'%s'#' %s" % (apache_group, available_site_file)
-      import pdb;pdb.set_trace()
       os.system(sed_expression)
       
       sed_expression = "sed -i -e 's#'{apache_group}'#'%s'#' %s" % (apache_group, available_site_file)
-      import pdb;pdb.set_trace()
       os.system(sed_expression)
       
       #enable the vhost
