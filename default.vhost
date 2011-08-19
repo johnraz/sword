@@ -1,0 +1,31 @@
+<VirtualHost *:80>
+	ServerAdmin {admin_email}
+	ServerName {default.domain.ext}
+	#ServerAlias server server2.domain.com server2
+	DocumentRoot {sitedir}
+	<Directory />
+		Options FollowSymLinks
+		AllowOverride All
+	</Directory>
+	<Directory {sitedir}>
+		Options Indexes FollowSymLinks MultiViews
+		AllowOverride All
+		Order allow,deny
+		allow from all
+	</Directory>
+	<IfModule mpm_itk_module>
+		AssignUserId {apache_group} {apache_user}
+	</IfModule>
+	ErrorLog ${APACHE_LOG_DIR}/{default.domain.ext}-error.log
+
+	# Possible values include: debug, info, notice, warn, error, crit,
+	# alert, emerg.
+	LogLevel warn
+
+	CustomLog ${APACHE_LOG_DIR}/{default.domain.ext}-access.log combined
+
+	php_flag log_errors on
+	php_flag display_errors on
+	php_value error_reporting 6143
+	php_value error_log ${APACHE_LOG_DIR}/{default.domain.ext}-php-error.log
+</VirtualHost>

@@ -51,6 +51,25 @@ def init_site(args):
    for site in args.sites:
       site = 'site_'+site
       sitedomain = config.get(site,current_env+'_domain_name')
+      #Take admin email from site section or general SECTION
+      if config.has_option(site, 'admin_email'):
+         admin_email = config.get(site, 'admin_email')
+      elif config.has_option('general','admin_email'):
+         admin_email = config.get('general', 'admin_email')
+      else:
+         raise Exception("You need to define admin_email in either general option section or %s section of your config file" % (site))
+
+      #Take apache user and group from apache section
+      if config.has_option('apache','user'):
+         apache_user = config.get('apache','user')
+      else:
+         raise Exception("You need to define the user in the apache section of your config file")
+      
+      if config.has_option('apache','group'):
+         apache_group = config.get('apache','group')
+      else:
+         raise Exception("You need to define the group in the apache section of your config file")
+         
       #Take svn url from argument or config file
       svn_url = None
       if args.svn_url:
@@ -63,10 +82,28 @@ def init_site(args):
       if not os.path.exists(sitedir):
          os.makedirs(sitedir)
       
-      #create the apache2 vhost 
-      sed_expression = "sed -e 's/'default.domain.ext'/'%s'/' default.vhost > %s" % (sitedomain, os.path.expanduser(config.get('apache', 'vhostdir'))+os.sep+sitedomain.replace('//','/'))
-      os.system(sed_expression)
+      #create the apache2 vhost
 
+      available_site_file = (os.path.expanduser(config.get('apache', 'vhostdir'))+os.sep+sitedomain).replace('//','/')
+      sed_expression = "sed -e 's/'{default.domain.ext}'/'%s'/' default.vhost > %s" % (sitedomain, available_site_file)
+      os.system(sed_expression)
+      
+      sed_expression = "sed -i -e 's#'{sitedir}'#'%s'#' %s" % (sitedir, available_site_file)
+      import pdb;pdb.set_trace()
+      os.system(sed_expression)
+      
+      sed_expression = "sed -i -e 's#'{admin_email}'#'%s'#' %s" % (admin_email, available_site_file)
+      import pdb;pdb.set_trace()
+      os.system(sed_expression)
+      
+      sed_expression = "sed -i -e 's#'{apache_user}'#'%s'#' %s" % (apache_group, available_site_file)
+      import pdb;pdb.set_trace()
+      os.system(sed_expression)
+      
+      sed_expression = "sed -i -e 's#'{apache_group}'#'%s'#' %s" % (apache_group, available_site_file)
+      import pdb;pdb.set_trace()
+      os.system(sed_expression)
+      
       #enable the vhost
       #TODO optionnalize this part aka apache vhost enable and reload
       os.system("a2ensite "+sitedomain)
@@ -106,7 +143,7 @@ def init_site(args):
       #TODO make this work ? shutil.move("wordpress/*",".")
       os.system("mv wordpress/* .")
       shutil.rmtree("wordpress")
-      os.system('chown -R %s:%s .' % (config.get('apache','user'),config.get('apache','group')))
+      os.system('chown -R %s:%s .' % (apache_group, apache_user))
 
 def init_database(args):
    

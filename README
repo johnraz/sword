@@ -1,6 +1,15 @@
 Sword
 =====
-Make sure to read and fill the config-sample.ini file and duplicate as config.ini.
+Make sure to read and fill the config-sample.ini file and save it as config.ini.
+
+Also make sure to configure the default.vhost file.
+Available placeholder are
+{admin_email}
+{apache_user}
+{apache_group}
+{sitedir}
+{default.domain.ext}
+See default.vhost for more details. The script is using sed to replace those placeholder with variables found in the config file. So you can basically move them all around.
 
 This script has been created to automate tasks regarding wordpress site administration.
 
