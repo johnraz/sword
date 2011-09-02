@@ -301,10 +301,19 @@ class Sword(object):
             print "Restore succesfull"
       
    def delete_sites(self, args):
+      #TODO IMPLEMENT !
       print "Delete command occurs here"
 
    def synch_upload_datas(self, args):
+      #TODO IMPLEMENT ! 
       print "synch_upload_datas command occurs here"
+
+   def install_debug_tools(self, args):
+      #TODO IMPLEMENT !
+      print "this will install plugins and tools for debuging"
+   def remove_debug_tools(self, args):
+      #TODO IMPLEMENT ! 
+      print "removes dev tools"
 
    def update_site(self, args):
       self.check_root()
@@ -329,6 +338,10 @@ class Sword(object):
          os.system("mv wordpress/* .")
          shutil.rmtree("wordpress")
          os.system('chown -R %s:%s .' % (self.config.get('apache','user'),self.config.get('apache','group')))
+
+   def install_plugins(self, args):
+       #TODO IMPLEMENT !
+       print "This will let you install plugins based on a configurable selection - could even add group-package and preselect. Would be nice to offer to install from local or remote locations"
 
    def update_plugin(self, args):
        """Utility to batch update your plugins."""
