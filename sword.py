@@ -237,7 +237,6 @@ class Sword(object):
       mysql_env = self.config.get(mysql_section,'env')
 
       backupdir = os.path.expanduser(self.config.get('general','backupdir'))
-      import pdb;pdb.set_trace()
       if not os.path.exists(backupdir):
          os.makedirs(backupdir)
 
@@ -345,10 +344,12 @@ class Sword(object):
 
    def update_plugin(self, args):
        """Utility to batch update your plugins."""
-       #self.check_root()
+       #self.check_root()       
        site = self.select_list(self.site_choices, "Available websites","Please select a website")
        site = 'site_'+site
-       #wp_xmlrpc_client = Client('http://companywriters.voxteneo.dev/xmlrpc.php','xx','qqqq')
+       #TODO replace domain - user and  password with config data
+       wp_xmlrpc_client = Client('http://companywriters.voxteneo.dev/xmlrpc.php','user','pass')
+       wp_xmlrpc_client.call(GetPluginsList())
 
 sword_instance = Sword()
 # ARGUMENT PARSER SECTION #
