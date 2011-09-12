@@ -26,7 +26,7 @@ import argparse, ConfigParser, json, os, pdb, urllib, tarfile, shutil,pwd, getpa
 
 from wordpress_xmlrpc import Client
 from lib.python_wordpress_xmlrpc.plugins import GetPluginsList
-#Init self.configuration Parser
+#Init configuration Parser
 class Sword(object):
    """Utility class to mass manage your wordpress installs"""
    def __init__(self):
@@ -106,7 +106,7 @@ class Sword(object):
          elif self.config.has_option('general','admin_email'):
             admin_email = self.config.get('general', 'admin_email')
          else:
-            raise Exception("You need to define admin_email in either general option section or %s section of your self.config file" % (site))
+            raise Exception("You need to define admin_email in either general option section or %s section of your config file" % (site))
 
          #Take apache user and group from apache section
          if self.config.has_option('apache','user'):
@@ -119,7 +119,7 @@ class Sword(object):
          else:
             raise Exception("You need to define the group in the apache section of your config file")
             
-         #Take svn url from argument or self.config file
+         #Take svn url from argument or config file
          svn_url = None
          if args.svn_url:
             svn_url = args.svn_url
@@ -203,7 +203,7 @@ class Sword(object):
             site_section = 'site_'+site
             db_name = self.config.get(site_section,'db_name')
             db_user = self.config.get(site_section, 'db_user')
-            #If password is already set up in the self.config keep it - otherwise generate it
+            #If password is already set up in the config keep it - otherwise generate it
             db_password = self.config.has_option(site_section,'db_password') and self.config.get(site_section, 'db_password') or (''.join(random.choice(string.ascii_letters + string.digits) for x in range(16)))
             if not db_name:
                print "No database name provided"
@@ -219,11 +219,11 @@ class Sword(object):
                   print "The init database failed."
                else:
                   print "Database init succesfull.\ndb_name:%s \nuser:%s \npassword:(see config.ini)" % (db_name,db_user)
-
+                  import ipdb;ipdb.set_trace()
                   if not self.config.has_option(site_section,'db_password') or not self.config.get(site_section,'db_password'): 
                      self.config.set(site_section,'db_password',db_password)
-                     with open('self.config.ini', 'w') as self.configfile:
-                        self.config.write(self.configfile)
+                     with open('config.ini', 'w') as configfile:
+                        self.config.write(configfile)
 
       else:
          print "The init database failed."
