@@ -22,7 +22,7 @@
 # Required application: svn client, mysql client, 
 
 
-import argparse, ConfigParser, json, os, pdb, urllib, tarfile, shutil,pwd, getpass,subprocess,MySQLdb,datetime, random, string, glob, sys
+import argparse, ConfigParser, json, os, urllib, tarfile, shutil,pwd, getpass,subprocess,MySQLdb,datetime, random, string, glob, sys
 
 from wordpress_xmlrpc import Client
 from lib.python_wordpress_xmlrpc.plugins import GetPluginsList
@@ -219,7 +219,7 @@ class Sword(object):
                   print "The init database failed."
                else:
                   print "Database init succesfull.\ndb_name:%s \nuser:%s \npassword:(see config.ini)" % (db_name,db_user)
-                  import ipdb;ipdb.set_trace()
+                  
                   if not self.config.has_option(site_section,'db_password') or not self.config.get(site_section,'db_password'): 
                      self.config.set(site_section,'db_password',db_password)
                      with open('config.ini', 'w') as configfile:
