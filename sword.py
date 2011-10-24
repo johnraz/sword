@@ -222,7 +222,7 @@ class Sword(object):
 
                   if not self.config.has_option(site_section,'db_password') or not self.config.get(site_section,'db_password'): 
                      self.config.set(site_section,'db_password',db_password)
-                     with open('self.config.ini', 'w') as self.configfile:
+                     with open('config.ini', 'w') as self.configfile:
                         self.config.write(self.configfile)
 
       else:
