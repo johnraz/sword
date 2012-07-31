@@ -84,6 +84,13 @@ class Sword(object):
         else:
             sys.exit("Action canceled.")
 
+    def required_input(self, message):
+        """Helper to display a confirmation message"""
+        result = ''
+        while(result == ''):
+            result = raw_input("%s: " % (message))
+        return result
+
     def get_mysql_server(self, section):
         if section.startswith('mysql_'):
             return section[6:]
@@ -94,53 +101,133 @@ class Sword(object):
 
     #Main Script Functions
     def init_site(self, args):
-        self.check_root()
+#        self.check_root()
         if not os.path.isfile('default.vhost'):
             raise Exception('default.vhost file required and not found.')
-            #Define initial vars
-        for site in args.sites:
+
+        if args.interractive:
+
+            sites = [self.required_input("Please type in an identifier for this site (eg: voxteneo)")]
+            site_section = 'site_'+sites[0]
+            self.config.add_section(site_section)
+
+            sitedomain = self.required_input("What is the domain for this site (eg: www.voxteneo.com)")
+            self.config.set(site_section, self.current_env + '_domain_name', sitedomain)
+
+            admin_email = self.required_input("What is admin's email")
+            self.config.set(site_section, 'admin_email', admin_email)
+
+            #apache_user = raw_input("What is apache user to be set in the vhost (leave blank for config default): ")
+            apache_user = None
+            if not apache_user:
+                if self.config.has_option('apache', 'user'):
+                    apache_user = self.config.get('apache', 'user')
+                else:
+                    raise Exception("You need to define the user in the apache section of your config file.")
+
+            #apache_group = raw_input("What is apache group to be set in the vhost (leave blank for config default): ")
+            apache_group = None
+            if not apache_group:
+                if self.config.has_option('apache', 'group'):
+                    apache_group = self.config.get('apache', 'group')
+                else:
+                    raise Exception("You need to define the group in the apache section of your config file")
+
+            versioning = self.select_list(['Git','Svn', 'None'], '', 'Which versioning system will you be using?')
+
+            if versioning == 'Git':
+                git_url = self.required_input("What is the git url (eg: git@gitlab.voxteneo.com:test.git)")
+                self.config.set(site_section, 'git_url', git_url)
+                git_folder = self.required_input("Git clone destination folder name (eg: test)")
+                self.config.set(site_section, 'git_folder', git_folder)
+
+            elif versioning == 'Svn':
+                svn_url = self.required_input("What is the svn url (eg: https://svn.voxteneo.com/test/)")
+                self.config.set(site_section, 'svn_url', svn_url)
+                svn_user = self.required_input("What is the svn user")
+                self.config.set(site_section, 'svn_user', svn_user)
+                svn_password = self.required_input("What is the svn password")
+                self.config.set(site_section, 'svn_password', svn_password)
+            else:
+                versioning = None
+
+            wp_version = raw_input("Which version of Wordpress do you want to install (leave empty for the latest): ")
+            if not wp_version:
+                wp_version = self.config.get('wordpress', 'wp_default_version')
+            else:
+                self.config.set(site_section, 'wp_version', wp_version)
+
+            #Save the new values in the config
+            with open('config.ini', 'w') as configfile:
+                self.config.write(configfile)
+        else:
+            sites = args.sites
+
+        #Define initial vars
+        for site in sites:
             site = 'site_' + site
-            sitedomain = self.config.get(site, self.current_env + '_domain_name')
-            #Take admin email from site section or general SECTION
-            if self.config.has_option(site, 'admin_email'):
-                admin_email = self.config.get(site, 'admin_email')
-            elif self.config.has_option('general', 'admin_email'):
-                admin_email = self.config.get('general', 'admin_email')
-            else:
-                raise Exception(
-                    "You need to define admin_email in either general option section or %s section of your config file" % (
-                    site))
+            if not args.interractive:
+                sitedomain = self.config.get(site, self.current_env + '_domain_name')
+                #Take admin email from site section or general SECTION
+                if self.config.has_option(site, 'admin_email'):
+                    admin_email = self.config.get(site, 'admin_email')
+                elif self.config.has_option('general', 'admin_email'):
+                    admin_email = self.config.get('general', 'admin_email')
+                else:
+                    raise Exception(
+                        "You need to define admin_email in either general option section or %s section of your config file" % (
+                        site))
 
-            #Take apache user and group from apache section
-            if self.config.has_option('apache', 'user'):
-                apache_user = self.config.get('apache', 'user')
-            else:
-                raise Exception("You need to define the user in the apache section of your config file")
+                #Take apache user and group from apache section
+                if self.config.has_option('apache', 'user'):
+                    apache_user = self.config.get('apache', 'user')
+                else:
+                    raise Exception("You need to define the user in the apache section of your config file")
 
-            if self.config.has_option('apache', 'group'):
-                apache_group = self.config.get('apache', 'group')
-            else:
-                raise Exception("You need to define the group in the apache section of your config file")
+                if self.config.has_option('apache', 'group'):
+                    apache_group = self.config.get('apache', 'group')
+                else:
+                    raise Exception("You need to define the group in the apache section of your config file")
 
-            #Take svn url from argument or config file
-            svn_url = None
-            if args.svn_url:
-                svn_url = args.svn_url
-            elif self.config.has_option(site, 'svn_url'):
-                svn_url = self.config.get(site, 'svn_url')
+                #Take svn url from argument or config file
+                versioning = None
+                svn_url = None
+                if args.svn_url:
+                    versioning = 'Svn'
+                    svn_url = args.svn_url
+                elif self.config.has_option(site, 'svn_url'):
+                    versioning = 'Svn'
+                    svn_url = self.config.get(site, 'svn_url')
 
-            #OR Take git url from argument or config file
-            git_url = None
-            if args.svn_url:
-                git_url = args.git_url
-            elif self.config.has_option(site, 'git_url'):
-                git_url = self.config.get(site, 'git_url')
+                if self.config.has_option(site, 'svn_user'):
+                    svn_user = self.config.get(site, 'svn_user')
+                else:
+                    svn_user = self.config.get('svn', 'user')
+                if self.config.has_option(site, 'svn_password'):
+                    svn_password = self.config.get(site, 'svn_password')
+                else:
+                    svn_password = self.config.get('svn', 'password')
 
-            git_folder = None
-            if args.git_folder:
-                git_folder = args.git_folder
-            elif self.config.has_option(site, 'git_folder'):
-                git_folder = self.config.get(site, 'git_folder')
+                #OR Take git url from argument or config file
+                git_url = None
+                if args.git_url:
+                    versioning = 'Git'
+                    git_url = args.git_url
+                elif self.config.has_option(site, 'git_url'):
+                    versioning = 'Git'
+                    git_url = self.config.get(site, 'git_url')
+
+                git_folder = None
+                if args.git_folder:
+                    git_folder = args.git_folder
+                elif self.config.has_option(site, 'git_folder'):
+                    git_folder = self.config.get(site, 'git_folder')
+
+                if self.config.has_option(site, 'wp_version'):
+                    wp_version = "wordpress-" + self.config.get(site, 'wp_version')
+                else:
+                    wp_version = self.config.get('wordpress', 'wp_default_version')
+
 
 
             #create the sitedir in wwwdir
@@ -180,20 +267,12 @@ class Sword(object):
 
             #get the latest wordpress release and checkout the files from svn
 
-            if svn_url:
+            if versioning == 'Svn':
                 os.chdir(sitedir)
-                if self.config.has_option(site, 'svn_user'):
-                    svn_user = self.config.get(site, 'svn_user')
-                else:
-                    svn_user = self.config.get('svn', 'user')
-                if self.config.has_option(site, 'svn_password'):
-                    svn_password = self.config.get(site, 'svn_password')
-                else:
-                    svn_password = self.config.get('svn', 'password')
                 os.system("svn checkout %s . --username %s --password %s" % (svn_url, svn_user, svn_password))
 
             # Or GIT
-            if git_url and git_folder:
+            elif versioning == 'Git':
                 os.chdir('/tmp')
                 default_user = self.config.get('general', 'default_user')
                 git_tmp = '/tmp/%s' % git_folder
@@ -203,18 +282,16 @@ class Sword(object):
                 shutil.rmtree(git_tmp)
                 os.chdir(sitedir)
 
-            #TODO Implement a local system for keeping already downloaded wordpress release
-            if self.config.has_option(site, 'wp_version'):
-                wp_version = "wordpress-" + self.config.get(site, 'wp_version')
             else:
-                wp_version = self.config.get('wordpress', 'wp_default_version')
+                os.chdir(sitedir)
 
+            #TODO Implement a local system for keeping already downloaded wordpress release
             urllib.urlretrieve('http://wordpress.org/' + wp_version + '.tar.gz', 'tmp.tar.gz')
             tar = tarfile.open("tmp.tar.gz", "r:gz")
             tar.extractall()
             os.remove("tmp.tar.gz")
 
-            #Check if the svn repo contained wp-content folder or not.
+            #Check if the svn or git repo contained wp-content folder or not.
             if os.path.isdir('wp-content'):
                 shutil.rmtree("wordpress/wp-content/")
                 #TODO make this work ? shutil.move("wordpress/*",".")
@@ -223,20 +300,73 @@ class Sword(object):
             os.system('chown -R %s:%s .' % (apache_group, apache_user))
 
     def init_database(self, args):
-        mysql_user = self.config.get('mysql_' + args.mysql_host, 'user')
-        mysql_password = self.config.get('mysql_' + args.mysql_host, 'password')
-        mysql_host = self.config.get('mysql_' + args.mysql_host, 'host')
+
+        if args.mysql_server:
+            mysql_server =  args.mysql_server
+        else:
+            mysql_server = self.select_list(self.mysql_server_choices, "What is your mysql server? ", "Choose a server where to create the database.")
+
+        mysql_user = self.config.get('mysql_' + mysql_server, 'user')
+        mysql_password = self.config.get('mysql_' + mysql_server, 'password')
+        mysql_host = self.config.get('mysql_' + mysql_server, 'host')            
+
+        if args.interractive :
+            sites = [self.select_list(self.site_choices, "Sites", "Choose the site related to this database.")]
+            site_section = 'site_'+sites[0]
+
+#            mysql_user = raw_input("What is your mysql username (Leave blank for the config default)? ")
+#            if not mysql_user:
+#                mysql_user = self.config.get('mysql_' + mysql_server, 'user')
+#                self.config.set(site_section, 'user', mysql_user)
+#
+#            mysql_password = raw_input("What is your mysql password (Leave blank for the config default)? ")
+#            if not mysql_password:
+#                mysql_password = self.config.get('mysql_' + mysql_server, 'password')
+#                self.config.set(site_section, 'password', mysql_password)
+#
+#            mysql_host = raw_input("What is your mysql host (Leave blank for the config default)? ")
+#            if not mysql_host:
+#                mysql_host = self.config.get('mysql_' + mysql_server, 'host')
+#                self.config.set(site_section, 'password', mysql_password)
+
+            db_name = raw_input("What is your db name (Leave blank for the config default)? ")
+            if not db_name:
+                db_name = self.config.get(site_section, 'db_name')
+                self.config.set(site_section, 'db_name', db_name)
+
+            db_user = raw_input("What is your db user (Leave blank for the config default)? ")
+            if not db_user:
+                db_user = self.config.get(site_section, 'db_user')
+                self.config.set(site_section, 'db_user', db_user)
+
+            db_password_is_valid = False
+            while (not db_password_is_valid):
+                db_password = raw_input("What is your db password (Leave blank for the config default or automatic generation)? ")
+                if not db_password:
+                    db_password = self.config.has_option(site_section, 'db_password') and self.config.get(site_section,
+                        'db_password') or (''.join(random.choice(string.ascii_letters + string.digits) for x in range(16)))
+                    db_password_is_valid = True
+                else:
+                    db_password2 =  self.required_input("Please confirm your db password")
+                    if db_password == db_password2:
+                        db_password_is_valid = True
+        else:
+            sites = args.sites
+
 
         database_list = self.get_database_list(mysql_host, mysql_user, mysql_password)
 
         if database_list:
-            for site in args.sites:
-                site_section = 'site_' + site
-                db_name = self.config.get(site_section, 'db_name')
-                db_user = self.config.get(site_section, 'db_user')
-                #If password is already set up in the config keep it - otherwise generate it
-                db_password = self.config.has_option(site_section, 'db_password') and self.config.get(site_section,
-                    'db_password') or (''.join(random.choice(string.ascii_letters + string.digits) for x in range(16)))
+            for site in sites:
+                if not args.interractive:
+                    site_section = 'site_' + site
+                    db_name = self.config.get(site_section, 'db_name')
+                    db_user = self.config.get(site_section, 'db_user')
+
+                    #If password is already set up in the config keep it - otherwise generate it
+                    db_password = self.config.has_option(site_section, 'db_password') and self.config.get(site_section,
+                        'db_password') or (''.join(random.choice(string.ascii_letters + string.digits) for x in range(16)))
+
                 if not db_name:
                     print "No database name provided"
                     continue
@@ -260,7 +390,6 @@ class Sword(object):
                             self.config.set(site_section, 'db_password', db_password)
                             with open('config.ini', 'w') as configfile:
                                 self.config.write(configfile)
-
         else:
             print "The init database failed."
 
@@ -411,13 +540,13 @@ subparsers = parser.add_subparsers(title='Commands available',
 parser_init_site = subparsers.add_parser('init-site',
     help='Creates a local wordpress site, configures apache vhost and optionally retrieves custom wp-content folder with svn.')
 
-parser_init_site.add_argument('sites', metavar='sites', choices=sword_instance.site_choices, type=str, nargs='+',
+parser_init_site.add_argument('-s', '--sites', dest='sites', metavar='sites', choices=sword_instance.site_choices, type=str, nargs='*',
     help='The site\'s name as defined in the config file section eg: my-site')
 
 parser_init_site.add_argument('-d', '--dir', dest='sword_instance.wwwdir',
     help='The directory where the site will be created.')
 
-parser_init_site.add_argument('-s', '--svn', dest='svn_url', default=None,
+parser_init_site.add_argument('--svn', dest='svn_url', default=None,
     help='The svn url used to get datas from. Default: %(default)s aka will be ignored')
 
 parser_init_site.add_argument('-gu', '--git_url', dest='git_url', default=None,
@@ -425,6 +554,9 @@ parser_init_site.add_argument('-gu', '--git_url', dest='git_url', default=None,
 
 parser_init_site.add_argument('-gf', '--git_folder', dest='git_folder', default=None,
     help='The git folder used to put datas in. Default: %(default)s aka will be ignored')
+
+parser_init_site.add_argument('-i', '--interactive', dest='interractive', type=bool, nargs='?', default=False, const=True,
+    help='Activate interactive mode, site creation is done with a sequence of Question / Answer and datas are stored in the config file automatically. Default: %(default)s aka will be inactive')
 
 parser_init_site.set_defaults(func=sword_instance.init_site)
 
@@ -451,14 +583,17 @@ parser_update_plugin.set_defaults(func=sword_instance.update_plugin)
 parser_init_database = subparsers.add_parser('init-db',
     help='Initialize a database to your local mysql and optionally create user/permission accordingly.')
 
-parser_init_database.add_argument('sites', metavar='sites', choices=sword_instance.site_choices, type=str, nargs='+',
+parser_init_database.add_argument('-s', '--sites', dest='sites', metavar='sites', choices=sword_instance.site_choices, type=str,
     help='The site you want to init the database for.')
 
 parser_init_database.add_argument('-cu', '--create-user', dest='create_user', default=False, action="store_true",
     help='Append this parameter if you want to create user and database along with creation of the db')
 
-parser_init_database.add_argument('--host', dest='mysql_host', required=True,
+parser_init_database.add_argument('--server', dest='mysql_server',
     choices=sword_instance.mysql_server_choices, help='Mysql server where the database will be created')
+
+parser_init_database.add_argument('-i', '--interactive', dest='interractive', type=bool, nargs='?', default=False, const=True,
+    help='Activate interactive mode, database creation is done with a sequence of Question / Answer and datas are stored in the config file automatically. Default: %(default)s aka will be inactive')
 
 parser_init_database.set_defaults(func=sword_instance.init_database)
 
