@@ -249,31 +249,32 @@ class Sword(object):
 
             available_site_file = (
             os.path.expanduser(self.config.get('apache', 'vhostdir')) + os.sep + sitedomain).replace('//', '/')
-            sed_expression = "sudo sed -e 's/'{default.domain.ext}'/'%s'/' default.vhost > %s" % (
+
+            sed_expression = "sed -e 's/'{default.domain.ext}'/'%s'/' default.vhost > %s" % (
             sitedomain, available_site_file)
             os.system(sed_expression)
 
-            sed_expression = "sudo sed -i -e 's#'{sitedir}'#'%s'#' %s" % (sitedir, available_site_file)
+            sed_expression = "sed -i -e 's#'{sitedir}'#'%s'#' %s" % (sitedir, available_site_file)
             os.system(sed_expression)
 
-            sed_expression = "sudo sed -i -e 's#'{admin_email}'#'%s'#' %s" % (admin_email, available_site_file)
+            sed_expression = "sed -i -e 's#'{admin_email}'#'%s'#' %s" % (admin_email, available_site_file)
             os.system(sed_expression)
 
-            sed_expression = "sudo sed -i -e 's#'{apache_user}'#'%s'#' %s" % (apache_group, available_site_file)
+            sed_expression = "sed -i -e 's#'{apache_user}'#'%s'#' %s" % (apache_group, available_site_file)
             os.system(sed_expression)
 
-            sed_expression = "sudo sed -i -e 's#'{apache_group}'#'%s'#' %s" % (apache_group, available_site_file)
+            sed_expression = "sed -i -e 's#'{apache_group}'#'%s'#' %s" % (apache_group, available_site_file)
             os.system(sed_expression)
 
             #enable the vhost
             #TODO optionnalize this part aka apache vhost enable and reload
-            os.system("sudo a2ensite " + sitedomain)
-            os.system("sudo /etc/init.d/apache2 reload")
+            os.system("a2ensite " + sitedomain)
+            os.system("/etc/init.d/apache2 reload")
 
             #add the domain to the host file
             #TODO do it the clean python way
-            with open('/etc/hosts') as host:
-                os.system('sudo echo "127.0.0.1\t\t%s" >> /etc/hosts' % sitedomain)
+            #with open('/etc/hosts') as host:
+            os.system('echo "127.0.0.1\t\t%s" >> /etc/hosts' % sitedomain)
 
             #get the latest wordpress release and checkout the files from svn
 
@@ -307,7 +308,7 @@ class Sword(object):
                 #TODO make this work ? shutil.move("wordpress/*",".")
             os.system("mv wordpress/* .")
             shutil.rmtree("wordpress")
-            os.system('sudo chown -R %s:%s .' % (apache_group, apache_user))
+            os.system('chown -R %s:%s .' % (apache_group, apache_user))
 
     def init_database(self, args):
 
@@ -367,39 +368,42 @@ class Sword(object):
         database_list = self.get_database_list(mysql_host, mysql_user, mysql_password)
 
         if database_list:
-            for site in sites:
-                if not args.interractive:
-                    site_section = 'site_' + site
-                    db_name = self.config.get(site_section, 'db_name')
-                    db_user = self.config.get(site_section, 'db_user')
+            if sites:
+                for site in sites:
+                    if not args.interractive:
+                        site_section = 'site_' + site
+                        db_name = self.config.get(site_section, 'db_name')
+                        db_user = self.config.get(site_section, 'db_user')
 
-                    #If password is already set up in the config keep it - otherwise generate it
-                    db_password = self.config.has_option(site_section, 'db_password') and self.config.get(site_section,
-                        'db_password') or (''.join(random.choice(string.ascii_letters + string.digits) for x in range(16)))
+                        #If password is already set up in the config keep it - otherwise generate it
+                        db_password = self.config.has_option(site_section, 'db_password') and self.config.get(site_section,
+                            'db_password') or (''.join(random.choice(string.ascii_letters + string.digits) for x in range(16)))
 
-                if not db_name:
-                    print "No database name provided"
-                    continue
-                elif db_name in database_list:
-                    print "Database %s already exists" % db_name
-                    continue
-                else:
-                    #TODO use the correct domain localhost is not always the right value
-                    create_user_query = "CREATE USER '%s'@'localhost' IDENTIFIED BY '%s'; CREATE DATABASE %s; GRANT ALL ON *.* TO '%s'@'localhost';" % (
-                    db_user, db_password, db_name, db_user)
-                    cmd = "mysql -u %s -p%s -h %s --silent -N -e \"%s\"" % (
-                    mysql_user, mysql_password, mysql_host, create_user_query)
-                    if os.system(cmd) != 0:
-                        print "The init database failed."
+                    if not db_name:
+                        print "No database name provided"
+                        continue
+                    elif db_name in database_list:
+                        print "Database %s already exists" % db_name
+                        continue
                     else:
-                        print "Database init succesfull.\ndb_name:%s \nuser:%s \npassword:(see config.ini)" % (
-                        db_name, db_user)
+                        #TODO use the correct domain localhost is not always the right value
+                        create_user_query = "CREATE USER '%s'@'localhost' IDENTIFIED BY '%s'; CREATE DATABASE %s; GRANT ALL ON *.* TO '%s'@'localhost';" % (
+                        db_user, db_password, db_name, db_user)
+                        cmd = "mysql -u %s -p%s -h %s --silent -N -e \"%s\"" % (
+                        mysql_user, mysql_password, mysql_host, create_user_query)
+                        if os.system(cmd) != 0:
+                            print "The init database failed."
+                        else:
+                            print "Database init succesfull.\ndb_name:%s \nuser:%s \npassword:(see config.ini)" % (
+                            db_name, db_user)
 
-                        if not self.config.has_option(site_section, 'db_password') or not self.config.get(site_section,
-                            'db_password'):
-                            self.config.set(site_section, 'db_password', db_password)
-                            with open('config.ini', 'w') as configfile:
-                                self.config.write(configfile)
+                            if not self.config.has_option(site_section, 'db_password') or not self.config.get(site_section,
+                                'db_password'):
+                                self.config.set(site_section, 'db_password', db_password)
+                                with open('config.ini', 'w') as configfile:
+                                    self.config.write(configfile)
+            else:
+                print "If you don't use the interractive mode please provide a site name in %s" % self.site_choices
         else:
             print "The init database failed."
 
@@ -612,7 +616,7 @@ parser_init_site.add_argument('-gu', '--git_url', dest='git_url', default=None,
 parser_init_site.add_argument('-gf', '--git_folder', dest='git_folder', default=None,
     help='The git folder used to put datas in. Default: %(default)s aka will be ignored')
 
-parser_init_site.add_argument('-i', '--interactive', dest='interractive', type=bool, nargs='?', default=False, const=True,
+parser_init_site.add_argument('-i', '--interactive', dest='interractive', type=bool, nargs='?', default=True, const=True,
     help='Activate interactive mode, site creation is done with a sequence of Question / Answer and datas are stored in the config file automatically. Default: %(default)s aka will be inactive')
 
 parser_init_site.set_defaults(func=sword_instance.init_site)
