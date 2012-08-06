@@ -22,7 +22,8 @@
 # Required application: svn client, mysql client, 
 
 
-import argparse, ConfigParser, json, os, urllib, tarfile, shutil, pwd, getpass, subprocess, datetime, random, string, glob, sys
+import argparse, ConfigParser, json, os, urllib, tarfile, shutil, pwd, getpass, subprocess, datetime, random, string, glob, sys, requests
+from sqlalchemy.engine import create_engine, reflection
 
 from wordpress_xmlrpc import Client
 from lib.python_wordpress_xmlrpc.plugins import GetPluginsList
@@ -56,11 +57,20 @@ class Sword(object):
         if section.startswith('site_'):
             return section[5:]
 
+    def get_mysql_server(self, section):
+        '''Retrieve the site name from section name'''
+        if section.startswith('mysql_'):
+            return section[6:]
+
 
     # iterate through the sections name and only get those that starts with site_ then remove None results
     @property
     def site_choices(self):
         return sorted(filter(None, [self.get_site(site) for site in self.config.sections()]))
+
+    @property
+    def mysql_server_choices(self):
+        return sorted(filter(None, [self.get_mysql_server(mysql_server) for mysql_server in self.config.sections()]))
 
     def select_list(self, list_items, header_message, select_message):
         """Helper to display a selectable list"""
@@ -101,7 +111,7 @@ class Sword(object):
 
     #Main Script Functions
     def init_site(self, args):
-#        self.check_root()
+        self.check_root()
         if not os.path.isfile('default.vhost'):
             raise Exception('default.vhost file required and not found.')
 
@@ -239,31 +249,31 @@ class Sword(object):
 
             available_site_file = (
             os.path.expanduser(self.config.get('apache', 'vhostdir')) + os.sep + sitedomain).replace('//', '/')
-            sed_expression = "sed -e 's/'{default.domain.ext}'/'%s'/' default.vhost > %s" % (
+            sed_expression = "sudo sed -e 's/'{default.domain.ext}'/'%s'/' default.vhost > %s" % (
             sitedomain, available_site_file)
             os.system(sed_expression)
 
-            sed_expression = "sed -i -e 's#'{sitedir}'#'%s'#' %s" % (sitedir, available_site_file)
+            sed_expression = "sudo sed -i -e 's#'{sitedir}'#'%s'#' %s" % (sitedir, available_site_file)
             os.system(sed_expression)
 
-            sed_expression = "sed -i -e 's#'{admin_email}'#'%s'#' %s" % (admin_email, available_site_file)
+            sed_expression = "sudo sed -i -e 's#'{admin_email}'#'%s'#' %s" % (admin_email, available_site_file)
             os.system(sed_expression)
 
-            sed_expression = "sed -i -e 's#'{apache_user}'#'%s'#' %s" % (apache_group, available_site_file)
+            sed_expression = "sudo sed -i -e 's#'{apache_user}'#'%s'#' %s" % (apache_group, available_site_file)
             os.system(sed_expression)
 
-            sed_expression = "sed -i -e 's#'{apache_group}'#'%s'#' %s" % (apache_group, available_site_file)
+            sed_expression = "sudo sed -i -e 's#'{apache_group}'#'%s'#' %s" % (apache_group, available_site_file)
             os.system(sed_expression)
 
             #enable the vhost
             #TODO optionnalize this part aka apache vhost enable and reload
-            os.system("a2ensite " + sitedomain)
-            os.system("/etc/init.d/apache2 reload")
+            os.system("sudo a2ensite " + sitedomain)
+            os.system("sudo /etc/init.d/apache2 reload")
 
             #add the domain to the host file
             #TODO do it the clean python way
             with open('/etc/hosts') as host:
-                os.system('echo "127.0.0.1\t\t%s" >> /etc/hosts' % sitedomain)
+                os.system('sudo echo "127.0.0.1\t\t%s" >> /etc/hosts' % sitedomain)
 
             #get the latest wordpress release and checkout the files from svn
 
@@ -297,7 +307,7 @@ class Sword(object):
                 #TODO make this work ? shutil.move("wordpress/*",".")
             os.system("mv wordpress/* .")
             shutil.rmtree("wordpress")
-            os.system('chown -R %s:%s .' % (apache_group, apache_user))
+            os.system('sudo chown -R %s:%s .' % (apache_group, apache_user))
 
     def init_database(self, args):
 
@@ -308,7 +318,7 @@ class Sword(object):
 
         mysql_user = self.config.get('mysql_' + mysql_server, 'user')
         mysql_password = self.config.get('mysql_' + mysql_server, 'password')
-        mysql_host = self.config.get('mysql_' + mysql_server, 'host')            
+        mysql_host = self.config.get('mysql_' + mysql_server, 'host')
 
         if args.interractive :
             sites = [self.select_list(self.site_choices, "Sites", "Choose the site related to this database.")]
@@ -330,14 +340,14 @@ class Sword(object):
 #                self.config.set(site_section, 'password', mysql_password)
 
             db_name = raw_input("What is your db name (Leave blank for the config default)? ")
+            self.config.set(site_section, 'db_name', db_name)
             if not db_name:
                 db_name = self.config.get(site_section, 'db_name')
-                self.config.set(site_section, 'db_name', db_name)
 
             db_user = raw_input("What is your db user (Leave blank for the config default)? ")
+            self.config.set(site_section, 'db_user', db_user)
             if not db_user:
                 db_user = self.config.get(site_section, 'db_user')
-                self.config.set(site_section, 'db_user', db_user)
 
             db_password_is_valid = False
             while (not db_password_is_valid):
@@ -394,7 +404,17 @@ class Sword(object):
             print "The init database failed."
 
     def backup_database(self, args):
-        mysql_section = 'mysql_' + args.source_server
+        if not args.site:
+            site = [self.select_list(self.site_choices, "Sites", "Which site do you want to work on?")]
+        else:
+            site = args.site
+
+        if not args.source_server:
+            source_server = [self.select_list(self.mysql_server_choices, "Mysql Servers", "Which server do you want to backup from?")]
+        else :
+            source_server = args.source_server
+
+        mysql_section = 'mysql_' + source_server[0]
         mysql_user = self.config.get(mysql_section, 'user')
         mysql_password = self.config.get(mysql_section, 'password')
         mysql_host = self.config.get(mysql_section, 'host')
@@ -406,35 +426,47 @@ class Sword(object):
 
         database_list = self.get_database_list(mysql_host, mysql_user, mysql_password)
         if database_list:
-            for site in args.sites:
-                site_section = 'site_' + site
-                db_name = self.config.get(site_section, 'db_name')
-                sitedomain = self.config.get(site_section, mysql_env + '_domain_name')
-                filestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-                filename = backupdir + os.sep + db_name + "-" + args.source_server + "-" + filestamp + ".sql"
-                if db_name in database_list:
-                    result = os.system(
-                        "mysqldump -u %s -p%s -h %s -e --opt -c %s | sed -e 's/'%s'/'domain_to_replace'/g' |gzip -c > %s.gz" % (
-                        mysql_user, mysql_password, mysql_host, db_name, sitedomain, filename))
+            site_section = 'site_' + site[0]
+            db_name = self.config.get(site_section, 'db_name')
+            sitedomain = self.config.get(site_section, mysql_env + '_domain_name')
+            filestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            filename = backupdir + os.sep + db_name + "-" + source_server[0] + "-" + filestamp + ".sql"
+            if db_name in database_list:
+#                    result = os.system(
+#                        "mysqldump -u %s -p%s -h %s -e --opt -c %s | sed -e 's/'%s'/'domain_to_replace'/g' |gzip -c > %s.gz" % (
+#                        mysql_user, mysql_password, mysql_host, db_name, sitedomain, filename))
+                result = os.system(
+                    "mysqldump -u %s -p%s -h %s -e --opt -c %s |gzip -c > %s.gz" % (
+                        mysql_user, mysql_password, mysql_host, db_name, filename))
 
-                    #TODO add an option to automatically put the db under svn - commit and stuff.
-                    #            result_sed = os.system("sed -e 's/'"+sitedomain+"'/'domain_to_replace'/' "+filename+" > "+filename)
-                    if result != 0:
-                        print "Backup failed."
-                    else:
-                        print "Backup succesfull."
+                #TODO add an option to automatically put the db under svn - commit and stuff.
+                #            result_sed = os.system("sed -e 's/'"+sitedomain+"'/'domain_to_replace'/' "+filename+" > "+filename)
+                if result != 0:
+                    print "Backup failed."
                 else:
-                    print "Database %s does not exist on %s" % (database, mysql_host)
+                    print "Backup succesfull."
+            else:
+                print "Database %s does not exist on %s" % (database, mysql_host)
         else:
             print "No database found in source %s" % (mysql_host)
 
     def restore_database(self, args):
-        site_section = 'site_' + args.site
+        if not args.site:
+            site = [self.select_list(self.site_choices, "Sites", "Which site do you want to work on?")]
+        else:
+            site = args.site
+        site_section = 'site_' + site[0]
         backupdir = os.path.expanduser(self.config.get('general', 'backupdir'))
         db_name = self.config.get(site_section, 'db_name')
         backup_list = glob.glob(backupdir + os.sep + db_name + '*.sql.gz'.replace('//', '/'))
         backup_list.sort()
-        mysql_section = 'mysql_' + args.destination_server
+
+        if not args.destination_server:
+            destination_server = [self.select_list(self.mysql_server_choices, "Mysql Servers", "Which server do you want to restore to?")]
+        else :
+            destination_server = args.destination_server
+
+        mysql_section = 'mysql_' + destination_server[0]
         mysql_user = self.config.get(mysql_section, 'user')
         mysql_password = self.config.get(mysql_section, 'password')
         mysql_host = self.config.get(mysql_section, 'host')
@@ -463,15 +495,40 @@ class Sword(object):
                 print "Error: please enter a number"
                 continue
 
+        search_value = self.required_input("Enter the old domain to replace")
+        replace_value = self.required_input("Enter the new domain to use")
+
         confirm = self.confirm_input(
             "Are you sure that you want to restore %s on server %s" % (backup_list[db_number], mysql_host))
 
         if confirm:
-            result = os.system("gunzip < %s | sed -e 's/'domain_to_replace'/'%s'/g' | mysql -h %s -u %s -p%s %s" % (
-            backup_list[db_number], sitedomain, mysql_host, mysql_user, mysql_password, db_name))
+#            result = os.system("gunzip < %s | sed -e 's/'domain_to_replace'/'%s'/g' | mysql -h %s -u %s -p%s %s" % (
+#            backup_list[db_number], sitedomain, mysql_host, mysql_user, mysql_password, db_name))
+            result = os.system("gunzip < %s | mysql -h %s -u %s -p%s %s" % (
+                backup_list[db_number], mysql_host, mysql_user, mysql_password, db_name))
+
             if result != 0:
                 print "Restore failed"
             else:
+                apache_public_dir = self.config.get('apache', 'publicdir')
+                os.system('sudo cp lib/searchreplacedb2.php %ssword_search_replace.php' % apache_public_dir)
+
+                engine = create_engine("mysql://%s:%s@%s/%s" % (mysql_user, mysql_password, mysql_host, db_name ))
+                inspector = reflection.Inspector.from_engine(engine)
+                tables = inspector.get_table_names()
+
+                postData = [
+                    ('host', mysql_host),
+                    ('data', db_name),
+                    ('user', mysql_user),
+                    ('pass', mysql_password),
+                    ('char', 'utf8'),
+                    ('srch', search_value),
+                    ('rplc', replace_value)
+                ]
+                for table in tables :  postData.append(('tables[]', table))
+                response = requests.post('http://localhost/sword_search_replace.php?step=5', postData)
+                os.system('sudo rm %s/sword_search_replace.php' % apache_public_dir)
                 print "Restore succesfull"
 
     def delete_sites(self, args):
@@ -600,10 +657,10 @@ parser_init_database.set_defaults(func=sword_instance.init_database)
 #define parser for the backup-db command
 parser_backup_database = subparsers.add_parser('backup-db', help='backup a database from source to backup folder')
 
-parser_backup_database.add_argument('sites', metavar='sites', type=str, nargs='+', choices=sword_instance.site_choices,
+parser_backup_database.add_argument('-s', '--site', dest='site', metavar='site', type=str,
     help='The name of the site from which you want to backup the db (separated by spaces)')
 
-parser_backup_database.add_argument('-s', '--source-server', dest='source_server', required=True,
+parser_backup_database.add_argument('--source-server', dest='source_server',
     help='Database(s) will be backuped FROM this location')
 
 parser_backup_database.set_defaults(func=sword_instance.backup_database)
@@ -611,10 +668,10 @@ parser_backup_database.set_defaults(func=sword_instance.backup_database)
 #define parser for the restore-db command
 parser_restore_database = subparsers.add_parser('restore-db', help='Restore a database from file to destination server')
 
-parser_restore_database.add_argument('site', metavar='site', type=str,
+parser_restore_database.add_argument('-s', '--site', dest='site', metavar='site', type=str,
     help='The name of the site you want to restore the db to.')
 
-parser_restore_database.add_argument('-d', '--destination-server', dest='destination_server', required=True,
+parser_restore_database.add_argument('-d', '--destination-server', dest='destination_server',
     help='Database(s) will be restored to this location')
 
 parser_restore_database.set_defaults(func=sword_instance.restore_database)
