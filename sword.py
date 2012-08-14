@@ -115,7 +115,7 @@ class Sword(object):
         if not os.path.isfile('default.vhost'):
             raise Exception('default.vhost file required and not found.')
 
-        if args.interractive:
+        if args.interactive:
 
             sites = [self.required_input("Please type in an identifier for this site (eg: voxteneo)")]
             site_section = 'site_'+sites[0]
@@ -176,7 +176,7 @@ class Sword(object):
         #Define initial vars
         for site in sites:
             site = 'site_' + site
-            if not args.interractive:
+            if not args.interactive:
                 sitedomain = self.config.get(site, self.current_env + '_domain_name')
                 #Take admin email from site section or general SECTION
                 if self.config.has_option(site, 'admin_email'):
@@ -321,7 +321,7 @@ class Sword(object):
         mysql_password = self.config.get('mysql_' + mysql_server, 'password')
         mysql_host = self.config.get('mysql_' + mysql_server, 'host')
 
-        if args.interractive :
+        if args.interactive :
             sites = [self.select_list(self.site_choices, "Sites", "Choose the site related to this database.")]
             site_section = 'site_'+sites[0]
 
@@ -370,7 +370,7 @@ class Sword(object):
         if database_list:
             if sites:
                 for site in sites:
-                    if not args.interractive:
+                    if not args.interactive:
                         site_section = 'site_' + site
                         db_name = self.config.get(site_section, 'db_name')
                         db_user = self.config.get(site_section, 'db_user')
@@ -403,7 +403,7 @@ class Sword(object):
                                 with open('config.ini', 'w') as configfile:
                                     self.config.write(configfile)
             else:
-                print "If you don't use the interractive mode please provide a site name in %s" % self.site_choices
+                print "If you don't use the interactive mode please provide a site name in %s" % self.site_choices
         else:
             print "The init database failed."
 
@@ -616,7 +616,7 @@ parser_init_site.add_argument('-gu', '--git_url', dest='git_url', default=None,
 parser_init_site.add_argument('-gf', '--git_folder', dest='git_folder', default=None,
     help='The git folder used to put datas in. Default: %(default)s aka will be ignored')
 
-parser_init_site.add_argument('-i', '--interactive', dest='interractive', type=bool, nargs='?', default=False, const=False,
+parser_init_site.add_argument('-i', '--interactive', dest='interactive', type=bool, nargs='?', default=False,
     help='Activate interactive mode, site creation is done with a sequence of Question / Answer and datas are stored in the config file automatically. Default: %(default)s aka will be inactive')
 
 parser_init_site.set_defaults(func=sword_instance.init_site)
@@ -653,7 +653,7 @@ parser_init_database.add_argument('-cu', '--create-user', dest='create_user', de
 parser_init_database.add_argument('--server', dest='mysql_server',
     choices=sword_instance.mysql_server_choices, help='Mysql server where the database will be created')
 
-parser_init_database.add_argument('-i', '--interactive', dest='interractive', type=bool, nargs='?', default=False, const=True,
+parser_init_database.add_argument('-i', '--interactive', dest='interactive', type=bool, nargs='?', default=False
     help='Activate interactive mode, database creation is done with a sequence of Question / Answer and datas are stored in the config file automatically. Default: %(default)s aka will be inactive')
 
 parser_init_database.set_defaults(func=sword_instance.init_database)
