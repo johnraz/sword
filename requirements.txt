@@ -1,2 +1,3 @@
 requests==0.13.6
 SQLAlchemy==0.7.8
+python-wordpress-xmlrpc==1.5
