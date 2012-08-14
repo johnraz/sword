@@ -616,7 +616,7 @@ parser_init_site.add_argument('-gu', '--git_url', dest='git_url', default=None,
 parser_init_site.add_argument('-gf', '--git_folder', dest='git_folder', default=None,
     help='The git folder used to put datas in. Default: %(default)s aka will be ignored')
 
-parser_init_site.add_argument('-i', '--interactive', dest='interractive', type=bool, nargs='?', default=True, const=True,
+parser_init_site.add_argument('-i', '--interactive', dest='interractive', type=bool, nargs='?', default=False, const=False,
     help='Activate interactive mode, site creation is done with a sequence of Question / Answer and datas are stored in the config file automatically. Default: %(default)s aka will be inactive')
 
 parser_init_site.set_defaults(func=sword_instance.init_site)
