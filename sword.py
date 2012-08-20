@@ -173,142 +173,145 @@ class Sword(object):
         else:
             sites = args.sites
 
-        #Define initial vars
-        for site in sites:
-            site = 'site_' + site
-            if not args.interractive:
-                sitedomain = self.config.get(site, self.current_env + '_domain_name')
-                #Take admin email from site section or general SECTION
-                if self.config.has_option(site, 'admin_email'):
-                    admin_email = self.config.get(site, 'admin_email')
-                elif self.config.has_option('general', 'admin_email'):
-                    admin_email = self.config.get('general', 'admin_email')
+        if sites:
+            #Define initial vars
+            for site in sites:
+                site = 'site_' + site
+                if not args.interractive:
+                    sitedomain = self.config.get(site, self.current_env + '_domain_name')
+                    #Take admin email from site section or general SECTION
+                    if self.config.has_option(site, 'admin_email'):
+                        admin_email = self.config.get(site, 'admin_email')
+                    elif self.config.has_option('general', 'admin_email'):
+                        admin_email = self.config.get('general', 'admin_email')
+                    else:
+                        raise Exception(
+                            "You need to define admin_email in either general option section or %s section of your config file" % (
+                            site))
+
+                    #Take apache user and group from apache section
+                    if self.config.has_option('apache', 'user'):
+                        apache_user = self.config.get('apache', 'user')
+                    else:
+                        raise Exception("You need to define the user in the apache section of your config file")
+
+                    if self.config.has_option('apache', 'group'):
+                        apache_group = self.config.get('apache', 'group')
+                    else:
+                        raise Exception("You need to define the group in the apache section of your config file")
+
+                    #Take svn url from argument or config file
+                    versioning = None
+                    svn_url = None
+                    if args.svn_url:
+                        versioning = 'Svn'
+                        svn_url = args.svn_url
+                    elif self.config.has_option(site, 'svn_url'):
+                        versioning = 'Svn'
+                        svn_url = self.config.get(site, 'svn_url')
+
+                    if self.config.has_option(site, 'svn_user'):
+                        svn_user = self.config.get(site, 'svn_user')
+                    else:
+                        svn_user = self.config.get('svn', 'user')
+                    if self.config.has_option(site, 'svn_password'):
+                        svn_password = self.config.get(site, 'svn_password')
+                    else:
+                        svn_password = self.config.get('svn', 'password')
+
+                    #OR Take git url from argument or config file
+                    git_url = None
+                    if args.git_url:
+                        versioning = 'Git'
+                        git_url = args.git_url
+                    elif self.config.has_option(site, 'git_url'):
+                        versioning = 'Git'
+                        git_url = self.config.get(site, 'git_url')
+
+                    git_folder = None
+                    if args.git_folder:
+                        git_folder = args.git_folder
+                    elif self.config.has_option(site, 'git_folder'):
+                        git_folder = self.config.get(site, 'git_folder')
+
+                    if self.config.has_option(site, 'wp_version'):
+                        wp_version = "wordpress-" + self.config.get(site, 'wp_version')
+                    else:
+                        wp_version = self.config.get('wordpress', 'wp_default_version')
+
+
+
+                #create the sitedir in wwwdir
+                sitedir = (os.path.expanduser(self.wwwdir) + os.sep + sitedomain).replace('//', '/')
+                if not os.path.exists(sitedir):
+                    os.makedirs(sitedir)
+
+                #create the apache2 vhost
+
+                available_site_file = (
+                os.path.expanduser(self.config.get('apache', 'vhostdir')) + os.sep + sitedomain).replace('//', '/')
+
+                sed_expression = "sed -e 's/'{default.domain.ext}'/'%s'/' default.vhost > %s" % (
+                sitedomain, available_site_file)
+                os.system(sed_expression)
+
+                sed_expression = "sed -i -e 's#'{sitedir}'#'%s'#' %s" % (sitedir, available_site_file)
+                os.system(sed_expression)
+
+                sed_expression = "sed -i -e 's#'{admin_email}'#'%s'#' %s" % (admin_email, available_site_file)
+                os.system(sed_expression)
+
+                sed_expression = "sed -i -e 's#'{apache_user}'#'%s'#' %s" % (apache_group, available_site_file)
+                os.system(sed_expression)
+
+                sed_expression = "sed -i -e 's#'{apache_group}'#'%s'#' %s" % (apache_group, available_site_file)
+                os.system(sed_expression)
+
+                #enable the vhost
+                #TODO optionnalize this part aka apache vhost enable and reload
+                os.system("a2ensite " + sitedomain)
+                os.system("/etc/init.d/apache2 reload")
+
+                #add the domain to the host file
+                #TODO do it the clean python way
+                #with open('/etc/hosts') as host:
+                os.system('echo "127.0.0.1\t\t%s" >> /etc/hosts' % sitedomain)
+
+                #get the latest wordpress release and checkout the files from svn
+
+                if versioning == 'Svn':
+                    os.chdir(sitedir)
+                    os.system("svn checkout %s . --username %s --password %s" % (svn_url, svn_user, svn_password))
+
+                # Or GIT
+                elif versioning == 'Git':
+                    os.chdir('/tmp')
+                    default_user = self.config.get('general', 'default_user')
+                    git_tmp = '/tmp/%s' % git_folder
+                    os.system("sudo -u %s git clone %s" % (default_user, git_url))
+                    shutil.rmtree(sitedir)
+                    shutil.copytree(git_tmp, sitedir)
+                    shutil.rmtree(git_tmp)
+                    os.chdir(sitedir)
+
                 else:
-                    raise Exception(
-                        "You need to define admin_email in either general option section or %s section of your config file" % (
-                        site))
+                    os.chdir(sitedir)
 
-                #Take apache user and group from apache section
-                if self.config.has_option('apache', 'user'):
-                    apache_user = self.config.get('apache', 'user')
-                else:
-                    raise Exception("You need to define the user in the apache section of your config file")
+                #TODO Implement a local system for keeping already downloaded wordpress release
+                urllib.urlretrieve('http://wordpress.org/' + wp_version + '.tar.gz', 'tmp.tar.gz')
+                tar = tarfile.open("tmp.tar.gz", "r:gz")
+                tar.extractall()
+                os.remove("tmp.tar.gz")
 
-                if self.config.has_option('apache', 'group'):
-                    apache_group = self.config.get('apache', 'group')
-                else:
-                    raise Exception("You need to define the group in the apache section of your config file")
-
-                #Take svn url from argument or config file
-                versioning = None
-                svn_url = None
-                if args.svn_url:
-                    versioning = 'Svn'
-                    svn_url = args.svn_url
-                elif self.config.has_option(site, 'svn_url'):
-                    versioning = 'Svn'
-                    svn_url = self.config.get(site, 'svn_url')
-
-                if self.config.has_option(site, 'svn_user'):
-                    svn_user = self.config.get(site, 'svn_user')
-                else:
-                    svn_user = self.config.get('svn', 'user')
-                if self.config.has_option(site, 'svn_password'):
-                    svn_password = self.config.get(site, 'svn_password')
-                else:
-                    svn_password = self.config.get('svn', 'password')
-
-                #OR Take git url from argument or config file
-                git_url = None
-                if args.git_url:
-                    versioning = 'Git'
-                    git_url = args.git_url
-                elif self.config.has_option(site, 'git_url'):
-                    versioning = 'Git'
-                    git_url = self.config.get(site, 'git_url')
-
-                git_folder = None
-                if args.git_folder:
-                    git_folder = args.git_folder
-                elif self.config.has_option(site, 'git_folder'):
-                    git_folder = self.config.get(site, 'git_folder')
-
-                if self.config.has_option(site, 'wp_version'):
-                    wp_version = "wordpress-" + self.config.get(site, 'wp_version')
-                else:
-                    wp_version = self.config.get('wordpress', 'wp_default_version')
-
-
-
-            #create the sitedir in wwwdir
-            sitedir = (os.path.expanduser(self.wwwdir) + os.sep + sitedomain).replace('//', '/')
-            if not os.path.exists(sitedir):
-                os.makedirs(sitedir)
-
-            #create the apache2 vhost
-
-            available_site_file = (
-            os.path.expanduser(self.config.get('apache', 'vhostdir')) + os.sep + sitedomain).replace('//', '/')
-
-            sed_expression = "sed -e 's/'{default.domain.ext}'/'%s'/' default.vhost > %s" % (
-            sitedomain, available_site_file)
-            os.system(sed_expression)
-
-            sed_expression = "sed -i -e 's#'{sitedir}'#'%s'#' %s" % (sitedir, available_site_file)
-            os.system(sed_expression)
-
-            sed_expression = "sed -i -e 's#'{admin_email}'#'%s'#' %s" % (admin_email, available_site_file)
-            os.system(sed_expression)
-
-            sed_expression = "sed -i -e 's#'{apache_user}'#'%s'#' %s" % (apache_group, available_site_file)
-            os.system(sed_expression)
-
-            sed_expression = "sed -i -e 's#'{apache_group}'#'%s'#' %s" % (apache_group, available_site_file)
-            os.system(sed_expression)
-
-            #enable the vhost
-            #TODO optionnalize this part aka apache vhost enable and reload
-            os.system("a2ensite " + sitedomain)
-            os.system("/etc/init.d/apache2 reload")
-
-            #add the domain to the host file
-            #TODO do it the clean python way
-            #with open('/etc/hosts') as host:
-            os.system('echo "127.0.0.1\t\t%s" >> /etc/hosts' % sitedomain)
-
-            #get the latest wordpress release and checkout the files from svn
-
-            if versioning == 'Svn':
-                os.chdir(sitedir)
-                os.system("svn checkout %s . --username %s --password %s" % (svn_url, svn_user, svn_password))
-
-            # Or GIT
-            elif versioning == 'Git':
-                os.chdir('/tmp')
-                default_user = self.config.get('general', 'default_user')
-                git_tmp = '/tmp/%s' % git_folder
-                os.system("sudo -u %s git clone %s" % (default_user, git_url))
-                shutil.rmtree(sitedir)
-                shutil.copytree(git_tmp, sitedir)
-                shutil.rmtree(git_tmp)
-                os.chdir(sitedir)
-
-            else:
-                os.chdir(sitedir)
-
-            #TODO Implement a local system for keeping already downloaded wordpress release
-            urllib.urlretrieve('http://wordpress.org/' + wp_version + '.tar.gz', 'tmp.tar.gz')
-            tar = tarfile.open("tmp.tar.gz", "r:gz")
-            tar.extractall()
-            os.remove("tmp.tar.gz")
-
-            #Check if the svn or git repo contained wp-content folder or not.
-            if os.path.isdir('wp-content'):
-                shutil.rmtree("wordpress/wp-content/")
-                #TODO make this work ? shutil.move("wordpress/*",".")
-            os.system("mv wordpress/* .")
-            shutil.rmtree("wordpress")
-            os.system('chown -R %s:%s .' % (apache_group, apache_user))
+                #Check if the svn or git repo contained wp-content folder or not.
+                if os.path.isdir('wp-content'):
+                    shutil.rmtree("wordpress/wp-content/")
+                    #TODO make this work ? shutil.move("wordpress/*",".")
+                os.system("mv wordpress/* .")
+                shutil.rmtree("wordpress")
+                os.system('chown -R %s:%s .' % (apache_group, apache_user))
+        else:
+            print "If you don't use the interractive mode please provide a site name with the parameter -s followed by one of those:\n%s" % self.site_choices
 
     def init_database(self, args):
 
@@ -622,22 +625,22 @@ parser_init_site.add_argument('-i', '--interactive', dest='interractive', type=b
 parser_init_site.set_defaults(func=sword_instance.init_site)
 
 # define parser for the update-site command
-parser_update_site = subparsers.add_parser('update-site',
-    help='Update selected site to another wordpress version (default:latest version)')
-
-parser_update_site.add_argument('sites', metavar='sites', choices=sword_instance.site_choices, type=str, nargs='+',
-    help='The site\'s name as defined in the config file section eg: my-site')
-
-parser_update_site.add_argument('-v', '--version', dest='wp_version', default='latest',
-    help='The version of wordpress to update to. Default: %(default)s version')
-
-parser_update_site.set_defaults(func=sword_instance.update_site)
-
-
-# define parser for the update-site command
-parser_update_plugin = subparsers.add_parser('update-plugin', help='Batch update plugins on selected sites')
-
-parser_update_plugin.set_defaults(func=sword_instance.update_plugin)
+#parser_update_site = subparsers.add_parser('update-site',
+#    help='Update selected site to another wordpress version (default:latest version)')
+#
+#parser_update_site.add_argument('sites', metavar='sites', choices=sword_instance.site_choices, type=str, nargs='+',
+#    help='The site\'s name as defined in the config file section eg: my-site')
+#
+#parser_update_site.add_argument('-v', '--version', dest='wp_version', default='latest',
+#    help='The version of wordpress to update to. Default: %(default)s version')
+#
+#parser_update_site.set_defaults(func=sword_instance.update_site)
+#
+#
+## define parser for the update-site command
+#parser_update_plugin = subparsers.add_parser('update-plugin', help='Batch update plugins on selected sites')
+#
+#parser_update_plugin.set_defaults(func=sword_instance.update_plugin)
 
 #define parser for the init-db command
 
